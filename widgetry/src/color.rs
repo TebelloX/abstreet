@@ -63,6 +63,8 @@ impl Texture {
     pub const PINE_TREE: Texture = Texture(16);
     pub const CACTUS: Texture = Texture(17);
     pub const SHRUB: Texture = Texture(18);
+    pub const STRIPES: Texture = Texture(19);
+    pub const POLKA: Texture = Texture(20);
     pub const SNOW_PERSON: Texture = Texture(29);
 }
 

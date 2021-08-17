@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use map_model::{LaneType, PathConstraints, Road};
-use widgetry::{Color, Drawable, EventCtx, GeomBatch, GfxCtx};
+use widgetry::{Color, Drawable, EventCtx, GeomBatch, GfxCtx, Fill, Texture};
 
 use crate::app::App;
 
@@ -88,8 +88,14 @@ impl DrawNetworkLayer {
                 continue;
             };
 
+            let fill = if map.get_edits().changed_roads.contains(&r.id) {
+                Fill::ColoredTexture(color, Texture::POLKA)
+            } else {
+                Fill::Color(color)
+            };
+
             batch.push(
-                color,
+                fill,
                 r.center_pts.make_polygons(thickness * r.get_width(map)),
             );
             // Arbitrarily pick a color when two different types of roads meet
@@ -123,10 +129,10 @@ pub fn render_edits(ctx: &mut EventCtx, app: &App) -> Drawable {
     let mut batch = GeomBatch::new();
     let map = &app.primary.map;
     for r in &map.get_edits().changed_roads {
-        batch.push(
+        /*batch.push(
             EDITED_COLOR.alpha(0.5),
             map.get_r(*r).get_thick_polygon(map),
-        );
+        );*/
     }
     batch.upload(ctx)
 }
