@@ -8,8 +8,8 @@ use map_model::{
 };
 use widgetry::{
     lctrl, Choice, Color, ControlState, Drawable, EventCtx, GeomBatch, GeomBatchStack, GfxCtx,
-    HorizontalAlignment, Image, Key, Line, Outcome, Panel, Spinner, State, Text, TextExt,
-    VerticalAlignment, Widget, DEFAULT_CORNER_RADIUS,
+    HorizontalAlignment, Image, Key, Line, Outcome, Panel, PersistentSplit, Spinner, State, Text,
+    TextExt, VerticalAlignment, Widget, DEFAULT_CORNER_RADIUS,
 };
 
 use crate::app::{App, Transition};
@@ -233,7 +233,17 @@ impl State<App> for RoadEditor {
         }
 
         match self.main_panel.event(ctx) {
-            Outcome::Clicked(x) => {
+            Outcome::Clicked(mut x) => {
+                // Do a bit of rewriting here...
+                if x == "buffer type" {
+                    let lt = app.session.buffer_lane_type.short_name();
+                    if self.current_lane.is_some() {
+                        x = format!("change to {}", lt);
+                    } else {
+                        x = format!("add {}", lt);
+                    }
+                }
+
                 if let Some(idx) = x.strip_prefix("modify Lane #") {
                     self.current_lane = Some(LaneID(idx.parse().unwrap()));
                     self.recalc_all_panels(ctx, app);
@@ -324,6 +334,22 @@ impl State<App> for RoadEditor {
                     return self.modify_current_lane(ctx, app, Some(0), |new, idx| {
                         new.lanes_ltr[idx].width = width;
                     });
+                }
+                "buffer type" => {
+                    app.session.buffer_lane_type =
+                        self.main_panel.persistent_split_value("buffer type");
+                    if self.current_lane.is_some() {
+                        let lt = app.session.buffer_lane_type;
+                        let width = LaneSpec::typical_lane_widths(
+                            lt,
+                            &app.primary.map.get_r(self.r).osm_tags,
+                        )[0]
+                        .0;
+                        return self.modify_current_lane(ctx, app, Some(0), |new, idx| {
+                            new.lanes_ltr[idx].lt = lt;
+                            new.lanes_ltr[idx].width = width;
+                        });
+                    }
                 }
                 _ => unreachable!(),
             },
@@ -529,11 +555,6 @@ fn make_main_panel(
         (LaneType::Parking, Some(Key::P)),
         (LaneType::Construction, Some(Key::C)),
         (LaneType::Sidewalk, Some(Key::S)),
-        (LaneType::Buffer(BufferType::Stripes), None),
-        (LaneType::Buffer(BufferType::FlexPosts), None),
-        (LaneType::Buffer(BufferType::Planters), None),
-        (LaneType::Buffer(BufferType::JerseyBarrier), None),
-        (LaneType::Buffer(BufferType::Curb), None),
     ]
     .into_iter()
     .map(|(lt, key)| {
@@ -591,6 +612,29 @@ fn make_main_panel(
         )
     })
     .collect::<Vec<Widget>>();
+
+    // A single control for buffers
+    available_lane_types_row.push(PersistentSplit::widget(
+        ctx,
+        "buffer type",
+        app.session.buffer_lane_type,
+        None,
+        vec![
+            BufferType::Stripes,
+            BufferType::FlexPosts,
+            BufferType::Planters,
+            BufferType::JerseyBarrier,
+            BufferType::Curb,
+        ]
+        .into_iter()
+        .map(|buf| {
+            let lt = LaneType::Buffer(buf);
+            let width = LaneSpec::typical_lane_widths(lt, &road.osm_tags)[0].0;
+            Choice::new(format!("{} ({})", lt.short_name(), width), lt)
+        })
+        .collect(),
+    ));
+
     available_lane_types_row.insert(
         0,
         if current_lane.is_some() {
